@@ -1,0 +1,30 @@
+{
+  "name": "repo-disserv-tei-utils",
+  "version": "1.0.0",
+  "description": "service to process tei files stored in arche",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/babslgam/repo-disserv-tei-utils.git"
+  },
+  "author": "Barbara Krautgartner",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/babslgam/repo-disserv-tei-utils/issues"
+  },
+  "homepage": "https://github.com/babslgam/repo-disserv-tei-utils#readme",
+  "devDependencies": {
+    "eslint": "^6.8.0",
+    "eslint-config-airbnb-base": "^14.1.0",
+    "eslint-plugin-import": "^2.20.2"
+  },
+  "dependencies": {
+    "axios": "^0.19.2",
+    "better-sqlite3": "^7.0.1",
+    "express": "^4.17.1",
+    "saxophone": "^0.6.1"
+  }
+}

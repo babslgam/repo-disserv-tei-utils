@@ -1,0 +1,5 @@
+/package-lock.json
+*.db
+node_modules
+/test-resources
+/config.js
