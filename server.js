@@ -23,12 +23,18 @@ app.get('/resources/:resourceId', (req, res) => {
 });
 
 app.get('/resources/:resourceId/stats', (req, res) => {
+  let qr;
+  const grouped = req.query.grouped ? req.query.grouped : false;
   const elementName = req.query.element ? req.query.element.replace(/\*/g, '%') : '%%';
   const text = req.query.text ? req.query.text.replace(/\*/g, '%') : '%%';
   const archeResourceId = req.params.resourceId;
   helpers.validateRequest(archeResourceId).then((validationResult) => {
     if (validationResult.response.message === 'Resource already stored and up to date') {
-      const qr = resource.query(archeResourceId, queries.distinctElements, elementName, text);
+      if (!grouped) {
+        qr = resource.query(archeResourceId, queries.elements, elementName, text);
+      } else {
+        qr = resource.query(archeResourceId, queries.distinctElements, elementName, text);
+      }
       res.send(qr);
     }
   });
