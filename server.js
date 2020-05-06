@@ -49,7 +49,7 @@ app.get('/resources/:resourceId/import', (req, res) => {
         res.send(rs.message);
       });
     } else {
-      res.send(validationResult.result.message);
+      res.send(validationResult.response.message);
     }
   });
 });
