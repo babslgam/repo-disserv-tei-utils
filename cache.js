@@ -23,11 +23,18 @@ function storeResource(archeResourceId, lastBinaryUpdateDate) {
   //resource.init(id, archeResourceId);
 }
 
+function getResource(resourceId) {
+  const stmt = cachedb.prepare('SELECT * FROM resources where arche_id = ?').bind(resourceId);
+  const resource = stmt.get();
+  return resource;
+}
+
 function getResources() {
   const stmt = cachedb.prepare('SELECT * FROM resources');
   const resources = stmt.all();
   return resources;
 }
+
 
 function check(archeResourceId, binaryUpdateDate) {
   const response = {};
@@ -48,4 +55,5 @@ module.exports = {
   check,
   storeResource,
   getResources,
+  getResource,
 };

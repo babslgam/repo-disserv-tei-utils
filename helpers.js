@@ -12,55 +12,108 @@ const relevantProps = {
   format: 'https://vocabs.acdh.oeaw.ac.at/schema#hasFormat',
 };
 
+const validProps = {
+  type: 'https://vocabs.acdh.oeaw.ac.at/schema#Resource',
+  format: 'text/xml',
+};
 
-function parseMetadata(metadata) {
+
+function parseMetadata(archeResourceId, metadata) {
   const md = {};
+  md.resourceId = archeResourceId;
   Object.keys(relevantProps).forEach((k) => {
     md[k] = (metadata[relevantProps[k]]) ? metadata[relevantProps[k]][0].value : undefined;
   });
   return md;
 }
 
-async function getMetaData(archeResourceId) {
-  const response = {};
-  const resUri = `${config.repoApi}/${archeResourceId}`;
+async function getMetaDataHead(resUri) {
+  let mdHdRes;
   try {
-    const repoResponse = await axios.get(`${resUri}/metadata`, {
+    mdHdRes = await axios.head(`${resUri}/metadata`);
+  } catch (err) {
+    mdHdRes = err.response;
+  }
+  return mdHdRes;
+}
+
+async function getMetaData(resUri) {
+  let repoResponse;
+  try {
+    repoResponse = await axios.get(`${resUri}/metadata`, {
       headers: {
         accept: 'application/json',
         'X-METADATA-READ-MODE': 'resource',
       },
     });
-    response.result = parseMetadata(repoResponse.data[resUri]);
   } catch (error) {
-    response.status = 'error';
-    response.message = `Repo response: ${error.response.statusText}`;
+    repoResponse = error.response;
   }
-  return response;
+  return repoResponse;
 }
 
+function processMetaDataResponse(archeResourceId, mdResp) {
+  const parsedMetaData = parseMetadata(archeResourceId, mdResp);
+  const customResp = {};
+  if (parsedMetaData.type !== validProps.type) {
+    customResp.status = 400;
+    customResp.statusText = `Type is ${parsedMetaData.type}. Must be ${validProps.type}`;
+  }
+  else if (parsedMetaData.format !== validProps.format) {
+    customResp.status = 400;
+    customResp.statusText = `Format is ${parsedMetaData.format}. Must be ${validProps.format}`;
+  } else {
+    const cachedResource = cache.getResource(parsedMetaData.resourceId, parsedMetaData.binaryUpdateDate);
+    if (cachedResource) {
+      if (cachedResource.arche_binary_update_date === parsedMetaData.binaryUpdateDate) {
+        customResp.status = 403;
+        customResp.statusText = 'Resource is up to date';
+      } else {
+        customResp.status = 200;
+        customResp.binaryUpdateDate = parsedMetaData.binaryUpdateDate;
+        customResp.statusText = 'ready for import';
+      }
+    } else {
+      customResp.status = 200;
+      customResp.binaryUpdateDate = parsedMetaData.binaryUpdateDate;
+      customResp.statusText = 'ready for import';
+    }
+  }
+  return customResp;
+}
 
 async function validateRequest(archeResourceId) {
-  const validationResult = {
-    response: {},
-    binaryUpdateDate: null,
-  };
-
-  const metadataResponse = await getMetaData(archeResourceId);
-  if (metadataResponse.status === 'error') {
-    validationResult.response = metadataResponse;
-  } else if (metadataResponse.result.type !== 'https://vocabs.acdh.oeaw.ac.at/schema#Resource') {
-    validationResult.response.status = 'error';
-    validationResult.response.message = 'resource has wrong type';
-  } else if (metadataResponse.result.format !== 'text/xml') {
-    validationResult.response.status = 'error';
-    validationResult.response.message = 'resource has wrong format';
-  } else {
-    validationResult.binaryUpdateDate = metadataResponse.result.binaryUpdateDate;
-    validationResult.response = cache.check(archeResourceId, validationResult.binaryUpdateDate);
+  let customResp = {};
+  const resUri = `${config.repoApi}/${archeResourceId}`;
+  try {
+    const mdHdresponse = await getMetaDataHead(resUri);
+    switch (mdHdresponse.status) {
+      case 404:
+        customResp.status = 400;
+        customResp.statusText = 'Resource not found in repo';
+        break;
+      case 403:
+        customResp.status = 400;
+        customResp.statusText = 'Resource access in repo restricted';
+        break;
+      case 200:
+        try {
+          const mdResponse = await getMetaData(resUri);
+          const processedMetaDataResponse = processMetaDataResponse(archeResourceId, mdResponse.data[resUri]);
+          customResp = processedMetaDataResponse;
+        } catch (err) {
+          console.log(err);
+        }
+        break;
+      default:
+        break;
+    }
+  } catch (err) {
+    customResp = err.response;
   }
-  return validationResult;
+  return customResp;
 }
+
 
 async function importResource(archeResourceId) {
   const result = {};
@@ -69,11 +122,8 @@ async function importResource(archeResourceId) {
     const response = await axios.get(`${config.repoApi}/${archeResourceId}`);
     const nodes = await parser.parse(response.data);
     resource.insertNodes(db, nodes);
-    result.message = 'Import done';
-    /*parser.parse(response.data).then((nodes) => {
-      resource.insertNodes(db, nodes);
-      result.message = 'Import done';
-    });*/
+    result.status = '200';
+    result.statusText = 'Import done';
   } catch (error) {
     console.error(error);
   }
@@ -82,6 +132,7 @@ async function importResource(archeResourceId) {
 
 module.exports = {
   parseMetadata,
-  validateRequest,
   importResource,
+  getMetaDataHead,
+  validateRequest,
 };
