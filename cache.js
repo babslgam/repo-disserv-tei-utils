@@ -1,13 +1,18 @@
 const Database = require('better-sqlite3');
+const log4js = require('log4js');
 
+
+const logger = log4js.getLogger();
+logger.level = 'debug';
 
 let cachedb;
 
 function init() {
-  cachedb = Database(`${__dirname}/cache.db`);
+  cachedb = Database(`${__dirname}/cache.db`, {verbose: logger.info.bind(logger)});
   cachedb.exec(`CREATE TABLE IF NOT EXISTS resources (
         arche_id integer primary key,
-        arche_binary_update_date date
+        arche_binary_update_date date,
+        importstatus text
         );`);
 }
 
@@ -18,9 +23,12 @@ function init() {
 } */
 
 function storeResource(archeResourceId, lastBinaryUpdateDate) {
-  const stmt = cachedb.prepare('INSERT INTO resources VALUES(?,?)');
-  stmt.run(archeResourceId, lastBinaryUpdateDate);
-  //resource.init(id, archeResourceId);
+  const stmt = cachedb.prepare('INSERT INTO resources VALUES(?,?,?)');
+  stmt.run(archeResourceId, lastBinaryUpdateDate, 'pending');
+}
+function updateImportStatus(status, archeResourceId, lastBinaryUpdateDate) {
+  const stmt = cachedb.prepare('UPDATE resources SET importstatus = ? where arche_id = ? AND arche_binary_update_date = ?');
+  stmt.run(status, archeResourceId, lastBinaryUpdateDate);
 }
 
 function getResource(resourceId) {
@@ -56,4 +64,5 @@ module.exports = {
   storeResource,
   getResources,
   getResource,
+  updateImportStatus,
 };

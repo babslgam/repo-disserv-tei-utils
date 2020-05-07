@@ -95,13 +95,31 @@ router.get('/resources/:id', (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ *
+ *   /resources/{id}/import:
+ *     get:
+ *       description: Triggers import of repo resource.
+ *       produces:
+ *         - application/json
+ *       parameters:
+ *         - name: id
+ *           description: Numeric id of resource to import.
+ *           in: path
+ *           required: true
+ *           type: integer
+ *       responses:
+ *         '200':
+ *           description: Import done.
+ */
+
 router.get('/resources/:resourceId/import', async (req, res) => {
   const archeResourceId = req.params.resourceId;
   try {
     const reqResult = await helpers.validateRequest(archeResourceId);
     if (reqResult.status === 200) {
-      helpers.importResource(archeResourceId).then((rs) => {
-        cache.storeResource(archeResourceId, reqResult.binaryUpdateDate);
+      helpers.importResource(archeResourceId, reqResult).then((rs) => {
         res.status(rs.status).send(rs.statusText);
       });
     } else {
@@ -112,6 +130,22 @@ router.get('/resources/:resourceId/import', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ *
+ *   /resources/{id}/elements:
+ *     get:
+ *       description: Get xml Elements.
+ *       produces:
+ *         - application/json
+ *       parameters:
+ *         - name: name
+ *           description: Name of the element.
+ *           in: query
+ *           required: true
+ *           type: integer
+ */
+
 router.get('/resources/:id/elements', (req, res) => {
   let qr;
   req.query.limit = 50;
@@ -119,17 +153,12 @@ router.get('/resources/:id/elements', (req, res) => {
   const elementName = req.query.element ? req.query.element.replace(/\*/g, '%') : '%%';
   const text = req.query.text ? req.query.text.replace(/\*/g, '%') : '%%';
   const archeResourceId = req.params.id;
-
-  helpers.validateRequest(archeResourceId).then((validationResult) => {
-    if (validationResult.response.message === 'Resource already stored and up to date') {
-      if (!grouped) {
-        qr = resource.query(archeResourceId, queries.elements, elementName, text);
-      } else {
-        qr = resource.query(archeResourceId, queries.distinctElements, elementName, text);
-      }
-      res.send(qr);
-    }
-  });
+  if (!grouped) {
+    qr = resource.query(archeResourceId, queries.elements, elementName, text);
+  } else {
+    qr = resource.query(archeResourceId, queries.distinctElements, elementName, text);
+  }
+  res.send(qr);
 });
 
 

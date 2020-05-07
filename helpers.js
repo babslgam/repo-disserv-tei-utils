@@ -66,8 +66,13 @@ function processMetaDataResponse(archeResourceId, mdResp) {
     const cachedResource = cache.getResource(parsedMetaData.resourceId, parsedMetaData.binaryUpdateDate);
     if (cachedResource) {
       if (cachedResource.arche_binary_update_date === parsedMetaData.binaryUpdateDate) {
-        customResp.status = 403;
-        customResp.statusText = 'Resource is up to date';
+        if (cachedResource.importstatus === 'pending') {
+          customResp.status = 403;
+          customResp.statusText = 'Import pending';
+        } else {
+          customResp.status = 403;
+          customResp.statusText = 'Resource is up to date';
+        }
       } else {
         customResp.status = 200;
         customResp.binaryUpdateDate = parsedMetaData.binaryUpdateDate;
@@ -115,13 +120,15 @@ async function validateRequest(archeResourceId) {
 }
 
 
-async function importResource(archeResourceId) {
+async function importResource(archeResourceId, resourceInfo) {
+  cache.storeResource(archeResourceId, resourceInfo.binaryUpdateDate, 'pending');
   const result = {};
   const db = resource.init(archeResourceId);
   try {
     const response = await axios.get(`${config.repoApi}/${archeResourceId}`);
     const nodes = await parser.parse(response.data);
     resource.insertNodes(db, nodes);
+    cache.updateImportStatus('done', archeResourceId, resourceInfo.binaryUpdateDate);
     result.status = '200';
     result.statusText = 'Import done';
   } catch (error) {
